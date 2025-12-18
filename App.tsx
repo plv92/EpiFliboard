@@ -109,6 +109,13 @@ const MainApp: React.FC = () => {
     }
   };
 
+  // Redirection automatique vers le feed si déconnecté sur la page profil
+  useEffect(() => {
+    if (!isAuthenticated && view === 'profile') {
+      setView('feed');
+    }
+  }, [isAuthenticated, view]);
+
   return (
     <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark text-textPrimary-light dark:text-textPrimary-dark font-sans transition-colors duration-500">
       <Navbar 
@@ -148,7 +155,7 @@ const MainApp: React.FC = () => {
                 </h2>
                 <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest">
                   <span className={`w-2 h-2 rounded-full ${isLoading ? 'bg-amber-400 animate-pulse' : 'bg-green-500'}`} />
-                  {isLoading ? 'Synchronisation Gemini...' : 'Propulsé par Gemini 3.0 • 2025'}
+                  {isLoading ? 'Synchronisation API...' : 'Source : NewsAPI.org'}
                 </div>
               </header>
 
@@ -159,6 +166,7 @@ const MainApp: React.FC = () => {
                     article={article} 
                     index={i}
                     onClick={setSelectedArticle}
+                    onAuthRequired={() => setIsAuthModalOpen(true)}
                   />
                 ))}
                 
@@ -181,11 +189,10 @@ const MainApp: React.FC = () => {
           </div>
         ) : (
           isAuthenticated ? (
-            <ProfilePage articles={articles} onArticleClick={setSelectedArticle} onBack={() => setView('feed')} />
+            <ProfilePage onArticleClick={setSelectedArticle} onBack={() => setView('feed')} />
           ) : (
-            // Sécurité : si on arrive ici sans être connecté, on renvoie au feed
             <div className="flex flex-col items-center justify-center py-40">
-              <p className="text-slate-400 mb-6 font-bold">Veuillez vous connecter pour accéder à votre profil.</p>
+              <p className="text-slate-400 mb-6 font-bold">Accès restreint aux membres.</p>
               <button onClick={() => setIsAuthModalOpen(true)} className="bg-primary px-8 py-3 rounded-2xl text-white font-bold">Se connecter</button>
             </div>
           )
@@ -193,7 +200,11 @@ const MainApp: React.FC = () => {
       </div>
 
       {selectedArticle && (
-        <ArticleView article={selectedArticle} onClose={() => setSelectedArticle(null)} />
+        <ArticleView 
+          article={selectedArticle} 
+          onClose={() => setSelectedArticle(null)} 
+          onAuthRequired={() => setIsAuthModalOpen(true)}
+        />
       )}
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />

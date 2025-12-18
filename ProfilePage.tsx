@@ -3,27 +3,27 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { Article } from './types';
 import CompactArticleCard from './CompactArticleCard';
-import { ICONS } from './constants';
 
 interface ProfilePageProps {
-  articles: Article[];
   onArticleClick: (article: Article) => void;
   onBack: () => void;
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onBack }) => {
-  const { user, bookmarks, likes, history, logout } = useAuth();
+const ProfilePage: React.FC<ProfilePageProps> = ({ onArticleClick, onBack }) => {
+  const { user, bookmarks, likes, history, savedArticles, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'saved' | 'history' | 'liked'>('saved');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+  // Correction : On utilise savedArticles (le cache global) au lieu du flux d'articles filtré
   const filteredArticles = useMemo(() => {
-    // Dans un vrai cas, on devrait filtrer parmi TOUS les articles déjà chargés ou mis en cache
-    // Ici on filtre sur les articles actuellement présents dans le feed pour la démo
-    const saved = articles.filter(a => bookmarks.includes(a.id));
-    const liked = articles.filter(a => likes.includes(a.id));
-    const hist = articles.filter(a => history.includes(a.id));
-    return { saved, liked, hist };
-  }, [articles, bookmarks, likes, history]);
+    const getItems = (ids: string[]) => ids.map(id => savedArticles[id]).filter(Boolean);
+    
+    return {
+      saved: getItems(bookmarks),
+      liked: getItems(likes),
+      hist: getItems(history)
+    };
+  }, [bookmarks, likes, history, savedArticles]);
 
   const currentList = activeTab === 'saved' ? filteredArticles.saved : 
                       activeTab === 'liked' ? filteredArticles.liked : 
@@ -37,7 +37,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onB
   return (
     <div className="min-h-screen pb-24 bg-background-light dark:bg-background-dark animate-in fade-in duration-500">
       <div className="max-w-7xl mx-auto px-6">
-        {/* Header Navigation */}
         <div className="pt-12 pb-10 flex items-center justify-between">
           <button 
             onClick={onBack} 
@@ -59,27 +58,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onB
           </button>
         </div>
 
-        {/* Profile Info Card */}
         <div className="relative mb-16">
           <div className="bg-white dark:bg-card-dark rounded-[3rem] p-10 md:p-12 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.04)] dark:shadow-none border border-slate-100 dark:border-border-dark flex flex-col md:flex-row items-center gap-10 overflow-hidden">
             <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-            
             <div className="relative">
               <div className="w-32 h-32 rounded-3xl border-4 border-slate-50 dark:border-slate-800 shadow-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
                 <img src={user?.avatar} alt={user?.name} className="w-full h-full object-cover" />
               </div>
               <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 border-4 border-white dark:border-card-dark rounded-full" />
             </div>
-
             <div className="flex-1 text-center md:text-left z-10">
-              <div className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-[9px] font-black uppercase tracking-widest mb-3">
-                Membre Premium
-              </div>
-              <h1 className="text-4xl font-display font-black text-slate-900 dark:text-slate-100 mb-1 tracking-tight">
-                {user?.name}
-              </h1>
+              <div className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-[9px] font-black uppercase tracking-widest mb-3">Membre Premium</div>
+              <h1 className="text-4xl font-display font-black text-slate-900 dark:text-slate-100 mb-1 tracking-tight">{user?.name}</h1>
               <p className="text-slate-400 dark:text-slate-500 font-medium text-base mb-6">{user?.email}</p>
-              
               <div className="flex flex-wrap justify-center md:justify-start gap-8">
                 <div className="flex flex-col">
                   <span className="text-2xl font-display font-black text-slate-900 dark:text-slate-100">{history.length}</span>
@@ -98,7 +89,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onB
           </div>
         </div>
 
-        {/* Tab Selection */}
         <div className="sticky top-24 z-30 mb-12 flex justify-center">
           <div className="bg-white/80 dark:bg-card-dark/80 backdrop-blur-xl border border-slate-100 dark:border-border-dark p-1.5 rounded-2xl shadow-xl dark:shadow-none flex gap-1">
             {(['saved', 'history', 'liked'] as const).map(tab => (
@@ -117,7 +107,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onB
           </div>
         </div>
 
-        {/* Article Grid - Compact Mode */}
         {currentList.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up">
             {currentList.map((article) => (
@@ -130,53 +119,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onB
           </div>
         ) : (
           <div className="text-center py-32 bg-slate-50/50 dark:bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800">
-            <div className="w-20 h-20 bg-white dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm">
-              <span className="text-3xl">📭</span>
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2 tracking-tight">Liste vide</h3>
-            <p className="text-slate-400 dark:text-slate-500 max-w-xs mx-auto mb-10 text-xs leading-relaxed font-medium">
-              Explorez le magazine pour alimenter votre bibliothèque personnelle.
-            </p>
-            <button 
-              onClick={onBack} 
-              className="px-10 py-4 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all text-xs uppercase tracking-widest"
-            >
-              Découvrir le feed
-            </button>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Liste vide</h3>
+            <p className="text-slate-400 dark:text-slate-500 mb-10 text-xs">Explorez le magazine pour alimenter votre bibliothèque.</p>
+            <button onClick={onBack} className="px-10 py-4 bg-primary text-white font-bold rounded-2xl">Découvrir le feed</button>
           </div>
         )}
       </div>
 
-      {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-white dark:bg-card-dark border border-slate-100 dark:border-border-dark rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md">
+          <div className="w-full max-w-sm bg-white dark:bg-card-dark border border-slate-100 dark:border-border-dark rounded-[2.5rem] p-10 shadow-2xl">
             <div className="text-center">
-              <div className="w-16 h-16 bg-accent/10 text-accent rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-display font-black text-slate-900 dark:text-slate-100 mb-3 tracking-tight">
-                Déconnexion
-              </h3>
-              <p className="text-slate-400 dark:text-slate-500 text-sm font-medium mb-8 leading-relaxed">
-                Êtes-vous sûr de vouloir vous déconnecter de votre session EpiFlipboard ?
-              </p>
-              
+              <h3 className="text-2xl font-display font-black mb-3">Déconnexion</h3>
+              <p className="text-slate-400 text-sm mb-8">Êtes-vous sûr ?</p>
               <div className="space-y-3">
-                <button 
-                  onClick={handleLogout}
-                  className="w-full bg-accent py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white shadow-lg shadow-accent/20 hover:bg-accent/90 transition-all active:scale-95"
-                >
-                  Confirmer la déconnexion
-                </button>
-                <button 
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="w-full bg-slate-50 dark:bg-slate-900/50 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95"
-                >
-                  Annuler
-                </button>
+                <button onClick={handleLogout} className="w-full bg-accent py-4 rounded-2xl font-black text-[10px] uppercase text-white">Confirmer</button>
+                <button onClick={() => setShowLogoutConfirm(false)} className="w-full bg-slate-50 dark:bg-slate-900/50 py-4 rounded-2xl font-black text-[10px] uppercase">Annuler</button>
               </div>
             </div>
           </div>

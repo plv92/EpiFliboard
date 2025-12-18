@@ -10,7 +10,7 @@ interface CompactArticleCardProps {
 }
 
 const CompactArticleCard: React.FC<CompactArticleCardProps> = ({ article, onClick }) => {
-  const { toggleBookmark, bookmarks } = useAuth();
+  const { toggleBookmark, bookmarks, isAuthenticated } = useAuth();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -92,7 +92,10 @@ const CompactArticleCard: React.FC<CompactArticleCardProps> = ({ article, onClic
 
           <div className="flex items-center gap-2">
             <button 
-              onClick={(e) => { e.stopPropagation(); toggleBookmark(article.id); }}
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (isAuthenticated) toggleBookmark(article); 
+              }}
               className={`p-1.5 rounded-lg transition-all ${isBookmarked ? 'bg-primary/10 text-primary' : 'text-slate-300 hover:text-primary hover:bg-slate-50 dark:hover:bg-slate-800'}`}
             >
               <ICONS.Bookmark active={isBookmarked} />

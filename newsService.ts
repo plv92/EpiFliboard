@@ -2,11 +2,6 @@
 import { Article, CategoryType } from "./types";
 import { fetchLatestArticles } from "./services/geminiService";
 
-/**
- * NewsAPI Key configurée pour l'utilisateur.
- * Note: NewsAPI (plan gratuit) bloque les requêtes provenant du navigateur 
- * sauf si l'origine est 'localhost' ou '127.0.0.1'.
- */
 const NEWS_API_KEY = '1d14f912da1745dba722ccf889155368';
 const BASE_URL = 'https://newsapi.org/v2';
 
@@ -22,15 +17,17 @@ const categoryMapping: Record<CategoryType, string> = {
 };
 
 const memoryCache: Record<string, { data: Article[], timestamp: number }> = {};
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const CACHE_TTL = 15 * 60 * 1000;
 
 /**
- * Récupère des articles. 
- * Stratégie : 
- * 1. Vérifie le cache local.
- * 2. Tente NewsAPI (recommandé pour localhost).
- * 3. En cas de restriction (426) ou erreur, bascule sur Gemini IA pour générer des news fraîches.
+ * Crée un ID stable à partir de l'URL ou du titre
  */
+const generateStableId = (url: string, title: string) => {
+  if (url && url !== "null") return url;
+  // Fallback sur un hash simple du titre si l'URL est manquante
+  return btoa(unescape(encodeURIComponent(title))).substring(0, 32);
+};
+
 export const fetchRealNews = async (
   category: CategoryType, 
   query?: string, 
@@ -40,36 +37,46 @@ export const fetchRealNews = async (
   const cacheKey = `${query ? `q:${query.toLowerCase()}` : `c:${category}`}_p:${page}`;
   const now = Date.now();
 
-  // 1. Retourner le cache si valide (évite les appels inutiles)
   if (memoryCache[cacheKey] && (now - memoryCache[cacheKey].timestamp < CACHE_TTL)) {
     return memoryCache[cacheKey].data;
   }
 
   try {
-    // 2. Tentative avec NewsAPI (Moteur de news réelles)
     let url = '';
     if (query) {
-      url = `${BASE_URL}/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=12&page=${page}&apiKey=${NEWS_API_KEY}`;    } else {
+      // Recherche en français
+      url = `${BASE_URL}/everything?q=${encodeURIComponent(query)}&language=fr&sortBy=publishedAt&pageSize=12&page=${page}&apiKey=${NEWS_API_KEY}`;
+    } else {
       const apiCategory = categoryMapping[category];
-      url = `${BASE_URL}/top-headlines?country=us&category=${apiCategory}&pageSize=12&page=${page}&apiKey=${NEWS_API_KEY}`;
+      // Utiliser 'everything' avec des mots-clés français pour avoir plus de résultats
+      // car top-headlines avec country=fr retourne peu d'articles
+      const frenchKeywords: Record<string, string> = {
+        'general': 'actualités france monde',
+        'technology': 'technologie innovation numérique',
+        'entertainment': 'divertissement cinéma musique',
+        'sports': 'sport football rugby',
+        'health': 'santé alimentation bien-être',
+        'business': 'économie entreprise finance',
+        'science': 'science découverte recherche'
+      };
+      const keywords = frenchKeywords[apiCategory] || 'actualités';
+      url = `${BASE_URL}/everything?q=${encodeURIComponent(keywords)}&language=fr&sortBy=publishedAt&pageSize=12&page=${page}&apiKey=${NEWS_API_KEY}`;
     }
 
     const response = await fetch(url);
 
-    // Détection de la restriction "localhost only" du plan Developer NewsAPI
     if (response.status === 426 || response.status === 403) {
-      console.warn("NewsAPI : Restriction 'localhost' détectée. Basculement sur Gemini IA...");
       throw new Error("Localhost restriction");
     }
 
     const data = await response.json();
     if (data.status !== 'ok') throw new Error(data.message);
 
-    const mappedArticles: Article[] = data.articles.map((art: any, index: number) => ({
-      id: art.url || `news-${index}-${now}`,
+    const mappedArticles: Article[] = data.articles.map((art: any) => ({
+      id: generateStableId(art.url, art.title),
       title: art.title,
-      description: art.description || "Description non disponible pour le moment.",
-      content: art.content || art.description || "Cliquez sur la source pour voir le contenu complet.",
+      description: art.description || "Description non disponible.",
+      content: art.content || art.description || "Contenu complet disponible via la source.",
       image: art.urlToImage || `https://images.unsplash.com/photo-1504711432869-5d39a110fdd7?auto=format&fit=crop&q=80&w=800`,
       source: art.source.name,
       sourceLogo: `https://ui-avatars.com/api/?name=${encodeURIComponent(art.source.name)}&background=000&color=fff&size=128&bold=true`,
@@ -88,12 +95,7 @@ export const fetchRealNews = async (
     return mappedArticles;
 
   } catch (error) {
-    // 3. Fallback vers Gemini IA (Synthèse de news réalistes)
-    // Cela permet à l'application de fonctionner même hors-localhost ou si la clé NewsAPI est expirée/limitée.
-    console.log("Utilisation du moteur Gemini pour la génération de news...");
     const aiArticles = await fetchLatestArticles(category);
-    
-    // Stockage du fallback en cache pour limiter les appels IA
     memoryCache[cacheKey] = { data: aiArticles, timestamp: now };
     if (onFreshData) onFreshData(aiArticles);
     return aiArticles;

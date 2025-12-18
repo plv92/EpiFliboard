@@ -8,10 +8,11 @@ interface ArticleCardProps {
   article: Article;
   onClick: (article: Article) => void;
   index?: number;
+  onAuthRequired?: () => void;
 }
 
-const ArticleCard: React.FC<ArticleCardProps> = ({ article, onClick, index = 0 }) => {
-  const { bookmarks, likes, toggleBookmark, toggleLike } = useAuth();
+const ArticleCard: React.FC<ArticleCardProps> = ({ article, onClick, index = 0, onAuthRequired }) => {
+  const { bookmarks, likes, toggleBookmark, toggleLike, isAuthenticated } = useAuth();
   const [imageState, setImageState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -21,7 +22,6 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, onClick, index = 0 }
   const isLiked = likes.includes(article.id);
   const displayLikes = article.likes + (isLiked ? 1 : 0);
 
-  // Lazy loading de la carte pour économiser les ressources au scroll
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -31,12 +31,30 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, onClick, index = 0 }
           observer.disconnect();
         }
       },
-      { rootMargin: '600px' } // On commence le chargement bien avant l'apparition
+      { rootMargin: '600px' }
     );
 
     if (cardRef.current) observer.observe(cardRef.current);
     return () => observer.disconnect();
   }, []);
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    toggleLike(article);
+  };
+
+  const handleBookmark = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      onAuthRequired?.();
+      return;
+    }
+    toggleBookmark(article);
+  };
 
   return (
     <div 
@@ -46,7 +64,6 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, onClick, index = 0 }
       onClick={() => onClick(article)}
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-100 dark:bg-slate-900">
-        {/* Placeholder / Skeleton */}
         {imageState !== 'loaded' && (
           <div className="absolute inset-0 bg-slate-200 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-[shimmer_2s_infinite]" />
@@ -65,7 +82,6 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, onClick, index = 0 }
           />
         )}
         
-        {/* Source Badge with Glassmorphism */}
         <div className="absolute top-5 left-5 z-10 transition-transform duration-500 group-hover:scale-110">
           <div className="glass px-4 py-2 rounded-2xl flex items-center gap-2.5 shadow-2xl border border-white/20 dark:border-white/5">
             <img src={article.sourceLogo} className="w-5 h-5 rounded-lg object-cover bg-black" alt="" />
@@ -93,7 +109,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, onClick, index = 0 }
         <div className="flex justify-between items-center pt-6 border-t border-slate-50 dark:border-border-dark/50">
           <div className="flex items-center gap-6 text-slate-400 dark:text-slate-500">
             <button 
-              onClick={(e) => { e.stopPropagation(); toggleLike(article.id); }}
+              onClick={handleLike}
               className={`flex items-center gap-2 text-xs font-black transition-all hover:scale-110 ${isLiked ? 'text-accent' : 'hover:text-accent'}`}
             >
               <ICONS.Heart active={isLiked} /> 
@@ -104,7 +120,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, onClick, index = 0 }
             </span>
           </div>
           <button 
-            onClick={(e) => { e.stopPropagation(); toggleBookmark(article.id); }}
+            onClick={handleBookmark}
             className={`p-3 rounded-2xl transition-all hover:scale-110 ${isBookmarked ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-slate-50 dark:bg-slate-900/50 text-slate-400 hover:text-primary border border-transparent'}`}
           >
             <ICONS.Bookmark active={isBookmarked} />
