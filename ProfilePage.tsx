@@ -14,6 +14,7 @@ interface ProfilePageProps {
 const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onBack }) => {
   const { user, bookmarks, likes, history, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'saved' | 'history' | 'liked'>('saved');
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const filteredArticles = useMemo(() => {
     // Dans un vrai cas, on devrait filtrer parmi TOUS les articles déjà chargés ou mis en cache
@@ -28,8 +29,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onB
                       activeTab === 'liked' ? filteredArticles.liked : 
                       filteredArticles.hist;
 
+  const handleLogout = () => {
+    logout();
+    onBack();
+  };
+
   return (
-    <div className="min-h-screen pb-24 bg-background-light dark:bg-background-dark">
+    <div className="min-h-screen pb-24 bg-background-light dark:bg-background-dark animate-in fade-in duration-500">
       <div className="max-w-7xl mx-auto px-6">
         {/* Header Navigation */}
         <div className="pt-12 pb-10 flex items-center justify-between">
@@ -46,8 +52,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onB
           </button>
           
           <button 
-            onClick={logout}
-            className="px-6 py-2.5 rounded-full border border-slate-200 dark:border-border-dark text-slate-500 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+            onClick={() => setShowLogoutConfirm(true)}
+            className="px-6 py-2.5 rounded-full border border-slate-200 dark:border-border-dark text-slate-500 dark:text-slate-400 font-bold text-sm hover:bg-accent/10 hover:text-accent hover:border-accent/20 transition-all active:scale-95"
           >
             Déconnexion
           </button>
@@ -140,6 +146,42 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ articles, onArticleClick, onB
           </div>
         )}
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white dark:bg-card-dark border border-slate-100 dark:border-border-dark rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-accent/10 text-accent rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-display font-black text-slate-900 dark:text-slate-100 mb-3 tracking-tight">
+                Déconnexion
+              </h3>
+              <p className="text-slate-400 dark:text-slate-500 text-sm font-medium mb-8 leading-relaxed">
+                Êtes-vous sûr de vouloir vous déconnecter de votre session EpiFlipboard ?
+              </p>
+              
+              <div className="space-y-3">
+                <button 
+                  onClick={handleLogout}
+                  className="w-full bg-accent py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white shadow-lg shadow-accent/20 hover:bg-accent/90 transition-all active:scale-95"
+                >
+                  Confirmer la déconnexion
+                </button>
+                <button 
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="w-full bg-slate-50 dark:bg-slate-900/50 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

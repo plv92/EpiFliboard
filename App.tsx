@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import Navbar from './Navbar';
-import CategoryMenu from './CategoryMenu';
+import Navbar from './components/Navbar';
+import CategoryMenu from './components/CategoryMenu';
 import ArticleCard from './ArticleCard';
 import ArticleView from './ArticleView';
 import AuthModal from './AuthModal';
 import ProfilePage from './ProfilePage';
-import { AuthProvider } from './AuthContext';
+import { AuthProvider, useAuth } from './AuthContext';
 import { Article, CategoryType } from './types';
 import { fetchRealNews } from './newsService';
 
@@ -19,8 +19,10 @@ const MainApp: React.FC = () => {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   
+  const { isAuthenticated } = useAuth();
   const loaderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,7 +39,6 @@ const MainApp: React.FC = () => {
     localStorage.setItem('epiflipboard_theme', !isDarkMode ? 'dark' : 'light');
   };
 
-  // Chargement initial d'une catégorie ou recherche
   const loadInitialContent = useCallback(async (cat: CategoryType, q?: string) => {
     setIsLoading(true);
     setPage(1);
@@ -55,7 +56,6 @@ const MainApp: React.FC = () => {
     }
   }, []);
 
-  // Chargement supplémentaire pour l'infinite scroll
   const loadMoreContent = useCallback(async () => {
     if (isMoreLoading || isLoading) return;
     setIsMoreLoading(true);
@@ -65,7 +65,6 @@ const MainApp: React.FC = () => {
       const newData = await fetchRealNews(activeCategory, searchQuery, nextPage);
       if (newData.length > 0) {
         setArticles(prev => {
-          // Filtrer les doublons éventuels
           const existingIds = new Set(prev.map(a => a.id));
           const uniqueNew = newData.filter(a => !existingIds.has(a.id));
           return [...prev, ...uniqueNew];
@@ -81,7 +80,6 @@ const MainApp: React.FC = () => {
     loadInitialContent(activeCategory, searchQuery);
   }, [activeCategory, searchQuery, loadInitialContent]);
 
-  // Observer pour l'Infinite Scroll
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -103,6 +101,14 @@ const MainApp: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleAuthAction = () => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true);
+    } else {
+      setView(view === 'profile' ? 'feed' : 'profile');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark text-textPrimary-light dark:text-textPrimary-dark font-sans transition-colors duration-500">
       <Navbar 
@@ -111,7 +117,7 @@ const MainApp: React.FC = () => {
           setView('feed');
         }} 
         onHomeClick={handleHomeClick}
-        onAuthClick={() => setView(view === 'profile' ? 'feed' : 'profile')} 
+        onAuthClick={handleAuthAction} 
         isDarkMode={isDarkMode}
         onToggleTheme={toggleTheme}
       />
@@ -163,7 +169,6 @@ const MainApp: React.FC = () => {
                 )}
               </div>
               
-              {/* Sentinelle de scroll infini */}
               <div ref={loaderRef} className="py-24 flex flex-col items-center justify-center gap-4">
                 {isMoreLoading && (
                   <>
@@ -175,13 +180,23 @@ const MainApp: React.FC = () => {
             </main>
           </div>
         ) : (
-          <ProfilePage articles={articles} onArticleClick={setSelectedArticle} onBack={() => setView('feed')} />
+          isAuthenticated ? (
+            <ProfilePage articles={articles} onArticleClick={setSelectedArticle} onBack={() => setView('feed')} />
+          ) : (
+            // Sécurité : si on arrive ici sans être connecté, on renvoie au feed
+            <div className="flex flex-col items-center justify-center py-40">
+              <p className="text-slate-400 mb-6 font-bold">Veuillez vous connecter pour accéder à votre profil.</p>
+              <button onClick={() => setIsAuthModalOpen(true)} className="bg-primary px-8 py-3 rounded-2xl text-white font-bold">Se connecter</button>
+            </div>
+          )
         )}
       </div>
 
       {selectedArticle && (
         <ArticleView article={selectedArticle} onClose={() => setSelectedArticle(null)} />
       )}
+
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
       <footer className="border-t border-slate-100 dark:border-border-dark py-20 px-6 bg-white dark:bg-card-dark text-center">
         <div className="flex items-center justify-center gap-3 mb-6">

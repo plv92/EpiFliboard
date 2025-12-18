@@ -10,12 +10,6 @@ import { fetchLatestArticles } from "./services/geminiService";
 const NEWS_API_KEY = '1d14f912da1745dba722ccf889155368';
 const BASE_URL = 'https://newsapi.org/v2';
 
-// ============ DEBUG ============
-console.log('🔑 NewsAPI Configuration:');
-console.log('   - Clé API:', NEWS_API_KEY ? `${NEWS_API_KEY.substring(0, 8)}...` : '❌ MANQUANTE');
-console.log('   - Base URL:', BASE_URL);
-// ===============================
-
 const categoryMapping: Record<CategoryType, string> = {
   [CategoryType.NEWS]: 'general',
   [CategoryType.TECH]: 'technology',
@@ -55,45 +49,20 @@ export const fetchRealNews = async (
     // 2. Tentative avec NewsAPI (Moteur de news réelles)
     let url = '';
     if (query) {
-      url = `${BASE_URL}/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=12&page=${page}&apiKey=${NEWS_API_KEY}`;
-    } else {
+      url = `${BASE_URL}/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=12&page=${page}&apiKey=${NEWS_API_KEY}`;    } else {
       const apiCategory = categoryMapping[category];
       url = `${BASE_URL}/top-headlines?country=us&category=${apiCategory}&pageSize=12&page=${page}&apiKey=${NEWS_API_KEY}`;
     }
 
-    // ============ DEBUG ============
-    console.log('📡 Appel NewsAPI:');
-    console.log('   - URL:', url.replace(NEWS_API_KEY, '***API_KEY***'));
-    console.log('   - Catégorie:', category);
-    console.log('   - Query:', query || '(aucune)');
-    console.log('   - Page:', page);
-    // ===============================
-
     const response = await fetch(url);
-
-    // ============ DEBUG ============
-    console.log('📨 Réponse NewsAPI:');
-    console.log('   - Status:', response.status, response.statusText);
-    // ===============================
 
     // Détection de la restriction "localhost only" du plan Developer NewsAPI
     if (response.status === 426 || response.status === 403) {
-      console.warn("⚠️ NewsAPI : Restriction 'localhost' détectée. Basculement sur Gemini IA...");
+      console.warn("NewsAPI : Restriction 'localhost' détectée. Basculement sur Gemini IA...");
       throw new Error("Localhost restriction");
     }
 
     const data = await response.json();
-
-    // ============ DEBUG ============
-    console.log('📦 Data NewsAPI:');
-    console.log('   - Status:', data.status);
-    console.log('   - Total Results:', data.totalResults);
-    console.log('   - Articles reçus:', data.articles?.length || 0);
-    if (data.status !== 'ok') {
-      console.error('   ❌ Erreur:', data.message || data.code);
-    }
-    // ===============================
-
     if (data.status !== 'ok') throw new Error(data.message);
 
     const mappedArticles: Article[] = data.articles.map((art: any, index: number) => ({
@@ -121,12 +90,6 @@ export const fetchRealNews = async (
   } catch (error) {
     // 3. Fallback vers Gemini IA (Synthèse de news réalistes)
     // Cela permet à l'application de fonctionner même hors-localhost ou si la clé NewsAPI est expirée/limitée.
-    
-    // ============ DEBUG ============
-    console.log('🤖 Fallback Gemini activé:');
-    console.log('   - Raison:', error instanceof Error ? error.message : 'Erreur inconnue');
-    // ===============================
-    
     console.log("Utilisation du moteur Gemini pour la génération de news...");
     const aiArticles = await fetchLatestArticles(category);
     

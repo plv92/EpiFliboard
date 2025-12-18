@@ -3,7 +3,9 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  password?: string; // Stocké de manière simulée pour la démo locale
   avatar?: string;
+  createdAt: string;
 }
 
 export interface Comment {
@@ -45,9 +47,8 @@ export enum CategoryType {
   SCIENCE = 'SCIENCE'
 }
 
-export interface UserPreferences {
-  favorites: CategoryType[];
+export interface UserData {
   bookmarks: string[];
   likes: string[];
-  readingHistory: string[];
+  history: string[];
 }
