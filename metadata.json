@@ -1,0 +1,9 @@
+
+{
+  "name": "EpiFlipboard",
+  "description": "A modern news aggregation platform inspired by Flipboard, featuring intelligent categorization and a sleek dark mode interface.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
