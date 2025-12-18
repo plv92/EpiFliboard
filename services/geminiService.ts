@@ -29,10 +29,10 @@ export const fetchLatestArticles = async (category: CategoryType = CategoryType.
               publishedAt: { type: Type.STRING },
               author: { type: Type.STRING },
               likes: { type: Type.NUMBER },
-              comments: { type: Type.NUMBER },
+              commentsCount: { type: Type.NUMBER },
               url: { type: Type.STRING, description: "Lien fictif ou vers une source réelle" }
             },
-            required: ["id", "title", "description", "content", "image", "source", "publishedAt", "author", "url"]
+            required: ["id", "title", "description", "content", "image", "source", "publishedAt", "author", "url", "likes", "commentsCount"]
           }
         }
       }
@@ -43,6 +43,8 @@ export const fetchLatestArticles = async (category: CategoryType = CategoryType.
       ...article,
       category,
       isBookmarked: false,
+      // Fix: Added missing property required by Article interface
+      isLiked: false, 
       image: article.image || `https://picsum.photos/seed/${article.id}/800/450`,
       sourceLogo: article.sourceLogo || `https://ui-avatars.com/api/?name=${encodeURIComponent(article.source)}&background=random`
     }));

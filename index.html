@@ -8,62 +8,149 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              primary: '#6366f1',
-              secondary: '#8b5cf6',
-              accent: '#ec4899',
-              background: '#0a0a0a',
-              card: '#1a1a1f',
-              border: '#2a2a2f',
-              textPrimary: '#ffffff',
-              textSecondary: '#9ca3af',
+              primary: '#4f46e5',
+              secondary: '#7c3aed',
+              accent: '#f43f5e',
+              background: {
+                light: '#fcfcfd',
+                dark: '#0a0a0b'
+              },
+              card: {
+                light: '#ffffff',
+                dark: '#16161a'
+              },
+              border: {
+                light: '#f1f5f9',
+                dark: '#26262c'
+              },
+              textPrimary: {
+                light: '#0f172a',
+                dark: '#f8fafc'
+              },
+              textSecondary: {
+                light: '#64748b',
+                dark: '#94a3b8'
+              },
             },
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              display: ['Poppins', 'sans-serif'],
+              sans: ['Plus Jakarta Sans', 'sans-serif'],
+              display: ['Playfair Display', 'serif'],
             },
+            animation: {
+              'fade-up': 'fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'scale-in': 'scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'slide-in-right': 'slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'slide-in-left': 'slideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'shimmer': 'shimmer 2s infinite linear',
+            },
+            keyframes: {
+              fadeUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              scaleIn: {
+                '0%': { opacity: '0', transform: 'scale(0.95)' },
+                '100%': { opacity: '1', transform: 'scale(1)' },
+              },
+              slideInRight: {
+                '0%': { opacity: '0', transform: 'translateX(30px)' },
+                '100%': { opacity: '1', transform: 'translateX(0)' },
+              },
+              slideInLeft: {
+                '0%': { opacity: '0', transform: 'translateX(-30px)' },
+                '100%': { opacity: '1', transform: 'translateX(0)' },
+              },
+              shimmer: {
+                '0%': { backgroundPosition: '-200% 0' },
+                '100%': { backgroundPosition: '200% 0' },
+              }
+            }
           }
         }
       }
     </script>
     <style>
       body {
-        background-color: #0a0a0a;
-        color: #ffffff;
         margin: 0;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
+      
+      .dark body {
+        background-color: #0a0a0b;
+        color: #f8fafc;
+      }
+      
+      body:not(.dark) {
+        background-color: #fcfcfd;
+        color: #0f172a;
+      }
+
       ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #0a0a0a;
+        background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #2a2a2f;
-        border-radius: 4px;
+        background: #e2e8f0;
+        border-radius: 10px;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #26262c;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #6366f1;
+        background: #4f46e5;
       }
+      
       .glass {
-        background: rgba(26, 26, 31, 0.7);
+        background: rgba(255, 255, 255, 0.8);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
       }
-      .line-clamp-2 {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+      .dark .glass {
+        background: rgba(10, 10, 11, 0.8);
+      }
+      
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .bg-shimmer {
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+        background-size: 200% 100%;
+      }
+      .dark .bg-shimmer {
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+        background-size: 200% 100%;
       }
     </style>
+    <script>
+      (function() {
+        const savedTheme = localStorage.getItem('epiflipboard_theme');
+        const hour = new Date().getHours();
+        const isNightTime = hour >= 19 || hour <= 7;
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        if (savedTheme === 'dark' || (!savedTheme && (prefersDark || isNightTime))) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
 <script type="importmap">
 {
   "imports": {

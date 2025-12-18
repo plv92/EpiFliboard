@@ -1,71 +1,138 @@
 
 import { Article, CategoryType } from "./types";
-import { fetchLatestArticles } from "./geminiService";
+import { fetchLatestArticles } from "./services/geminiService";
 
-// Récupération de la clé depuis le .env (VITE_NEWS_API_KEY)
-// Note: En local avec Vite, utilisez import.meta.env.VITE_NEWS_API_KEY 
-// ou process.env.VITE_NEWS_API_KEY selon votre config.
-const NEWS_API_KEY = process.env.VITE_NEWS_API_KEY || '1d14f912da1745dba722ccf889155368';
+/**
+ * NewsAPI Key configurée pour l'utilisateur.
+ * Note: NewsAPI (plan gratuit) bloque les requêtes provenant du navigateur 
+ * sauf si l'origine est 'localhost' ou '127.0.0.1'.
+ */
+const NEWS_API_KEY = '1d14f912da1745dba722ccf889155368';
+const BASE_URL = 'https://newsapi.org/v2';
 
-export const fetchRealNews = async (category: CategoryType, query?: string): Promise<Article[]> => {
-  const categoryMap: Record<string, string> = {
-    [CategoryType.NEWS]: 'general',
-    [CategoryType.TECH]: 'technology',
-    [CategoryType.ENTERTAINMENT]: 'entertainment',
-    [CategoryType.SPORTS]: 'sports',
-    [CategoryType.BUSINESS]: 'business',
-    [CategoryType.SCIENCE]: 'science',
-    [CategoryType.TRAVEL]: 'general',
-    [CategoryType.FOOD]: 'general',
-  };
+// ============ DEBUG ============
+console.log('🔑 NewsAPI Configuration:');
+console.log('   - Clé API:', NEWS_API_KEY ? `${NEWS_API_KEY.substring(0, 8)}...` : '❌ MANQUANTE');
+console.log('   - Base URL:', BASE_URL);
+// ===============================
 
-  // Paramètres de recherche spécifiques pour les catégories qui n'existent pas nativement dans NewsAPI
-  const qParam = (category === CategoryType.TRAVEL) ? 'voyage' : (category === CategoryType.FOOD) ? 'cuisine' : '';
-  
-  let apiUrl = query 
-    ? `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=fr&sortBy=publishedAt&apiKey=${NEWS_API_KEY}`
-    : `https://newsapi.org/v2/top-headlines?country=fr&category=${categoryMap[category]}${qParam ? `&q=${qParam}` : ''}&apiKey=${NEWS_API_KEY}`;
+const categoryMapping: Record<CategoryType, string> = {
+  [CategoryType.NEWS]: 'general',
+  [CategoryType.TECH]: 'technology',
+  [CategoryType.ENTERTAINMENT]: 'entertainment',
+  [CategoryType.SPORTS]: 'sports',
+  [CategoryType.TRAVEL]: 'general',
+  [CategoryType.FOOD]: 'health',
+  [CategoryType.BUSINESS]: 'business',
+  [CategoryType.SCIENCE]: 'science'
+};
 
-  // Utilisation d'un proxy pour éviter les erreurs CORS en développement local
-  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
+const memoryCache: Record<string, { data: Article[], timestamp: number }> = {};
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * Récupère des articles. 
+ * Stratégie : 
+ * 1. Vérifie le cache local.
+ * 2. Tente NewsAPI (recommandé pour localhost).
+ * 3. En cas de restriction (426) ou erreur, bascule sur Gemini IA pour générer des news fraîches.
+ */
+export const fetchRealNews = async (
+  category: CategoryType, 
+  query?: string, 
+  page: number = 1,
+  onFreshData?: (data: Article[]) => void
+): Promise<Article[]> => {
+  const cacheKey = `${query ? `q:${query.toLowerCase()}` : `c:${category}`}_p:${page}`;
+  const now = Date.now();
+
+  // 1. Retourner le cache si valide (évite les appels inutiles)
+  if (memoryCache[cacheKey] && (now - memoryCache[cacheKey].timestamp < CACHE_TTL)) {
+    return memoryCache[cacheKey].data;
+  }
 
   try {
-    const response = await fetch(proxyUrl);
-    if (!response.ok) throw new Error("Erreur réseau NewsAPI");
-    
-    const wrapper = await response.json();
-    const data = JSON.parse(wrapper.contents);
+    // 2. Tentative avec NewsAPI (Moteur de news réelles)
+    let url = '';
+    if (query) {
+      url = `${BASE_URL}/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=12&page=${page}&apiKey=${NEWS_API_KEY}`;
+    } else {
+      const apiCategory = categoryMapping[category];
+      url = `${BASE_URL}/top-headlines?country=us&category=${apiCategory}&pageSize=12&page=${page}&apiKey=${NEWS_API_KEY}`;
+    }
 
+    // ============ DEBUG ============
+    console.log('📡 Appel NewsAPI:');
+    console.log('   - URL:', url.replace(NEWS_API_KEY, '***API_KEY***'));
+    console.log('   - Catégorie:', category);
+    console.log('   - Query:', query || '(aucune)');
+    console.log('   - Page:', page);
+    // ===============================
+
+    const response = await fetch(url);
+
+    // ============ DEBUG ============
+    console.log('📨 Réponse NewsAPI:');
+    console.log('   - Status:', response.status, response.statusText);
+    // ===============================
+
+    // Détection de la restriction "localhost only" du plan Developer NewsAPI
+    if (response.status === 426 || response.status === 403) {
+      console.warn("⚠️ NewsAPI : Restriction 'localhost' détectée. Basculement sur Gemini IA...");
+      throw new Error("Localhost restriction");
+    }
+
+    const data = await response.json();
+
+    // ============ DEBUG ============
+    console.log('📦 Data NewsAPI:');
+    console.log('   - Status:', data.status);
+    console.log('   - Total Results:', data.totalResults);
+    console.log('   - Articles reçus:', data.articles?.length || 0);
     if (data.status !== 'ok') {
-      console.error("NewsAPI Error:", data.message);
-      throw new Error(data.message || "Erreur NewsAPI");
+      console.error('   ❌ Erreur:', data.message || data.code);
     }
+    // ===============================
 
-    if (!data.articles || data.articles.length === 0) {
-      console.warn("Aucun article trouvé sur NewsAPI, repli sur Gemini...");
-      return await fetchLatestArticles(category);
-    }
+    if (data.status !== 'ok') throw new Error(data.message);
 
-    return data.articles
-      .filter((a: any) => a.title && a.title !== '[Removed]' && a.urlToImage)
-      .map((a: any, index: number) => ({
-        id: a.url || `news-${index}-${Date.now()}`,
-        title: a.title,
-        description: a.description || "Pas de description disponible.",
-        content: a.content || a.description || "Le contenu complet n'est pas disponible.",
-        image: a.urlToImage,
-        source: a.source.name || "Source",
-        sourceLogo: `https://ui-avatars.com/api/?name=${encodeURIComponent(a.source.name || 'N')}&background=random&color=fff`,
-        category,
-        publishedAt: a.publishedAt || new Date().toISOString(),
-        author: a.author || a.source.name || "Rédaction",
-        likes: Math.floor(Math.random() * 300),
-        comments: Math.floor(Math.random() * 40),
-        isBookmarked: false,
-        url: a.url
-      }));
+    const mappedArticles: Article[] = data.articles.map((art: any, index: number) => ({
+      id: art.url || `news-${index}-${now}`,
+      title: art.title,
+      description: art.description || "Description non disponible pour le moment.",
+      content: art.content || art.description || "Cliquez sur la source pour voir le contenu complet.",
+      image: art.urlToImage || `https://images.unsplash.com/photo-1504711432869-5d39a110fdd7?auto=format&fit=crop&q=80&w=800`,
+      source: art.source.name,
+      sourceLogo: `https://ui-avatars.com/api/?name=${encodeURIComponent(art.source.name)}&background=000&color=fff&size=128&bold=true`,
+      category: category,
+      publishedAt: art.publishedAt,
+      author: art.author || art.source.name,
+      likes: Math.floor(Math.random() * 450),
+      commentsCount: Math.floor(Math.random() * 30),
+      isBookmarked: false,
+      isLiked: false,
+      url: art.url
+    }));
+
+    memoryCache[cacheKey] = { data: mappedArticles, timestamp: now };
+    if (onFreshData) onFreshData(mappedArticles);
+    return mappedArticles;
+
   } catch (error) {
-    console.warn("NewsAPI a échoué (clé invalide ou quota), utilisation de Gemini en secours:", error);
-    return await fetchLatestArticles(category);
+    // 3. Fallback vers Gemini IA (Synthèse de news réalistes)
+    // Cela permet à l'application de fonctionner même hors-localhost ou si la clé NewsAPI est expirée/limitée.
+    
+    // ============ DEBUG ============
+    console.log('🤖 Fallback Gemini activé:');
+    console.log('   - Raison:', error instanceof Error ? error.message : 'Erreur inconnue');
+    // ===============================
+    
+    console.log("Utilisation du moteur Gemini pour la génération de news...");
+    const aiArticles = await fetchLatestArticles(category);
+    
+    // Stockage du fallback en cache pour limiter les appels IA
+    memoryCache[cacheKey] = { data: aiArticles, timestamp: now };
+    if (onFreshData) onFreshData(aiArticles);
+    return aiArticles;
   }
 };

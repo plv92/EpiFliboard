@@ -1,4 +1,20 @@
 
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatar?: string;
+}
+
+export interface Comment {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  text: string;
+  timestamp: string;
+}
+
 export interface Article {
   id: string;
   title: string;
@@ -11,9 +27,11 @@ export interface Article {
   publishedAt: string;
   author: string;
   likes: number;
-  comments: number;
+  commentsCount: number;
   isBookmarked: boolean;
-  url: string; // Lien vers l'article original
+  isLiked: boolean;
+  url: string;
+  comments?: Comment[];
 }
 
 export enum CategoryType {
@@ -30,5 +48,6 @@ export enum CategoryType {
 export interface UserPreferences {
   favorites: CategoryType[];
   bookmarks: string[];
+  likes: string[];
   readingHistory: string[];
 }

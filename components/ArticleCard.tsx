@@ -64,7 +64,8 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, onClick, onBookmark 
             </button>
             <button className="flex items-center gap-1.5 hover:text-primary transition-colors" title="Comments">
               <ICONS.Chat />
-              <span className="text-[10px] font-bold">{article.comments}</span>
+              {/* Fix: Using commentsCount instead of the comments array to avoid rendering objects as React nodes */}
+              <span className="text-[10px] font-bold">{article.commentsCount}</span>
             </button>
           </div>
           <div className="flex items-center gap-1">
